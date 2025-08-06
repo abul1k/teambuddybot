@@ -1,6 +1,7 @@
 import TelegramBot from 'node-telegram-bot-api'
 import { Project } from '../../models/Project.js'
 import { addTaskStates, userStates } from '../../store/userStateStore.js'
+import { Task } from '../../models/Task.js'
 
 export const callbackQueryHandler = async (
   bot: TelegramBot,
@@ -64,6 +65,37 @@ export const callbackQueryHandler = async (
     addTaskStates.set(userId, taskState)
 
     await bot.sendMessage(chatId, '📝 Now send the task description:')
+    return bot.answerCallbackQuery(callbackQuery.id)
+  } else if (data.startsWith('complete_task_')) {
+    const taskId = data.replace('complete_task_', '')
+
+    try {
+      const task = await Task.findById(taskId)
+      if (!task) {
+        await bot.sendMessage(chatId, '❌ Task not found.')
+      } else {
+        task.completed = true
+
+        await task.save()
+
+        const { message } = callbackQuery
+
+        const updatedText = message.text.replace(
+          /⏳ Status: ❌ Not Completed/,
+          '⏳ Status: ✅ Completed'
+        )
+
+        await bot.editMessageText(updatedText, {
+          chat_id: message.chat.id,
+          message_id: message.message_id,
+          parse_mode: 'HTML', // Optional, if you're using HTML formatting
+        })
+      }
+    } catch (err) {
+      console.error('Failed to mark task as completed:', err)
+      await bot.sendMessage(chatId, '⚠️ Could not update the task.')
+    }
+
     return bot.answerCallbackQuery(callbackQuery.id)
   }
 
