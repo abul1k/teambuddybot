@@ -1,7 +1,7 @@
 import moment from 'moment'
 import { User } from '../../models/User.js'
 
-export const handleStart = async (bot, msg) => {
+export const start = async (bot, msg) => {
   const { id, username, first_name, last_name } = msg.from
 
   try {
@@ -11,7 +11,6 @@ export const handleStart = async (bot, msg) => {
       const startedAt = moment(existingUser.createdAt).format(
         'MMMM Do YYYY, HH:mm'
       )
-      console.log(`ℹ️ User already exists: ${username || id}`)
       await bot.sendMessage(
         msg.chat.id,
         `ℹ️ You already started the bot on ${startedAt}.`
@@ -25,8 +24,6 @@ export const handleStart = async (bot, msg) => {
       first_name,
       last_name,
     })
-
-    console.log(`✅ New user saved: ${username || id}`)
 
     await bot.sendMessage(msg.chat.id, '👋 Welcome to TeamBuddyBot!')
   } catch (err) {

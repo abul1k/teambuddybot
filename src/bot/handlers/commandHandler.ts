@@ -1,24 +1,26 @@
 import { addMemberToProject } from '../commands/addMemberToProject.js'
 import { addTask } from '../commands/addtask.js'
-import { newProject } from '../commands/newproject.js'
-import { handleStart } from '../commands/start.js'
+import { helpUser } from '../commands/helpUser.js'
+import { createNewProject } from '../commands/createNewProject.js'
+import { start } from '../commands/start.js'
+
+const commandsMap = {
+  '/start': start,
+  '/newproject': createNewProject,
+  '/addmember': addMemberToProject,
+  '/addtask': addTask,
+  '/help': helpUser,
+}
 
 export const commandHandler = (bot, msg, command, args) => {
-  switch (command) {
-    case '/start':
-      handleStart(bot, msg)
-      break
-    case '/newproject':
-      newProject(bot, msg)
-      break
-    case '/addmember':
-      console.log()
-      addMemberToProject(bot, msg)
-      break
-    case '/addtask':
-      addTask(bot, msg, args)
-      break
-    default:
-      bot.sendMessage(msg.chat.id, '❌ Unknown command.')
+  const handler = commandsMap[command]
+  if (handler) {
+    if (command === '/addtask') {
+      handler(bot, msg, args)
+    } else {
+      handler(bot, msg)
+    }
+  } else {
+    bot.sendMessage(msg.chat.id, '❌ Unknown command.')
   }
 }

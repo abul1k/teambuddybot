@@ -20,7 +20,10 @@ export const getUserProjectDraft = (userId: number) => {
   return userStates.get(userId)?.data
 }
 
-export const newProject = (bot: TelegramBot, msg: TelegramBot.Message) => {
+export const createNewProject = (
+  bot: TelegramBot,
+  msg: TelegramBot.Message
+) => {
   const userId = msg.from?.id
   if (!userId) return
 

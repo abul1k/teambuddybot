@@ -1,78 +1,68 @@
-import { Project } from '../../models/Project.js'
 import TelegramBot from 'node-telegram-bot-api'
+import { getAllProjects } from '../../services/projectService.js'
+import { userStates } from '../../store/userStateStore.js'
 import { User } from '../../models/User.js'
 
 export const addMemberToProject = async (
   bot: TelegramBot,
   msg: TelegramBot.Message
 ) => {
-  try {
-    const ownerId = msg.from?.id
-    if (!ownerId) {
-      return bot.sendMessage(msg.chat.id, '❌ Unable to identify you.')
-    }
+  const userId = msg.from?.id
+  const chatId = msg.chat.id
+  if (!userId || !msg.text) return
 
-    const text = msg.text
-    const mentions = text?.split(' ').slice(1)
+  const usernames = msg.text
+    .split(' ')
+    .slice(1)
+    .filter((word) => word.startsWith('@'))
+    .map((u) => u.replace('@', ''))
 
-    if (!mentions || mentions.length === 0) {
-      return bot.sendMessage(
-        msg.chat.id,
-        '❌ Please mention at least one user to add.\n\nExample: /addmember @john @alex'
-      )
-    }
+  if (usernames.length === 0) {
+    return bot.sendMessage(chatId, '❗ Please specify at least one @username.')
+  }
 
-    const project = await Project.findOne({ ownerId })
-    if (!project) {
-      return bot.sendMessage(
-        msg.chat.id,
-        "❌ You don't have a project yet. Use /newproject to create one."
-      )
-    }
+  // Fetch users from DB
+  const users = await User.find({ username: { $in: usernames } })
 
-    const newMemberIds: number[] = []
-
-    if (msg.entities) {
-      for (const entity of msg.entities) {
-        if (entity.type === 'mention') {
-          // Extract mentioned username (without @)
-          const usernameMentioned = msg.text
-            .slice(entity.offset, entity.offset + entity.length)
-            .replace('@', '')
-
-          // Find user in your DB by username
-          const dbUser = await User.findOne({ username: usernameMentioned })
-
-          if (dbUser) {
-            newMemberIds.push(dbUser.telegramId)
-          }
-        }
-      }
-    }
-
-    if (newMemberIds.length === 0) {
-      return bot.sendMessage(
-        msg.chat.id,
-        `❌ Couldn't find Telegram IDs for the mentioned users. Make sure they've interacted with the bot.`
-      )
-    }
-
-    // Filter out duplicates
-    const uniqueMembers = [...new Set([...project.members, ...newMemberIds])]
-
-    console.log(uniqueMembers)
-    project.members = uniqueMembers
-    await project.save()
-
-    bot.sendMessage(
-      msg.chat.id,
-      `✅ Successfully added ${newMemberIds.length} member(s) to your project!`
-    )
-  } catch (error) {
-    console.error('❌ Error adding member:', error)
-    bot.sendMessage(
-      msg.chat.id,
-      '❌ Something went wrong while adding members.'
+  if (users.length === 0) {
+    return bot.sendMessage(
+      chatId,
+      '⚠️ None of the usernames were found in the system.'
     )
   }
+
+  // Find which usernames were not found
+  const foundUsernames = users.map((u) => u.username)
+  const notFound = usernames.filter((u) => !foundUsernames.includes(u))
+
+  // Store only Telegram IDs
+  const telegramIds = users.map((u) => u.telegramId)
+  userStates.set(userId, { members: telegramIds })
+
+  if (notFound.length > 0) {
+    await bot.sendMessage(
+      chatId,
+      `⚠️ These usernames were not found: ${notFound
+        .map((u) => '@' + u)
+        .join(', ')}`
+    )
+  }
+
+  const listOfProjects = await getAllProjects()
+  if (listOfProjects.length === 0) {
+    return bot.sendMessage(chatId, '⚠️ No projects found.')
+  }
+
+  const options = {
+    reply_markup: {
+      inline_keyboard: listOfProjects.map((project) => [
+        {
+          text: project.name,
+          callback_data: `addmembers_project_${project._id}`,
+        },
+      ]),
+    },
+  }
+
+  await bot.sendMessage(chatId, 'Select a project to add members:', options)
 }
