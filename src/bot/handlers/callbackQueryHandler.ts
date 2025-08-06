@@ -1,6 +1,6 @@
 import TelegramBot from 'node-telegram-bot-api'
 import { Project } from '../../models/Project.js'
-import { userStates } from '../../store/userStateStore.js'
+import { addTaskStates, userStates } from '../../store/userStateStore.js'
 
 export const callbackQueryHandler = async (
   bot: TelegramBot,
@@ -47,6 +47,24 @@ export const callbackQueryHandler = async (
       console.error('Error updating project:', error)
       await bot.sendMessage(chatId, '⚠️ Failed to update project.')
     }
+  } else if (data.startsWith('addtask_project_')) {
+    const projectId = data.replace('addtask_project_', '')
+    const taskState = addTaskStates.get(userId)
+
+    if (!taskState || taskState.step !== 1) {
+      await bot.sendMessage(
+        chatId,
+        '⚠️ No task flow in progress. Use /addtask again.'
+      )
+      return bot.answerCallbackQuery(callbackQuery.id)
+    }
+
+    taskState.projectId = projectId
+    taskState.step = 2
+    addTaskStates.set(userId, taskState)
+
+    await bot.sendMessage(chatId, '📝 Now send the task description:')
+    return bot.answerCallbackQuery(callbackQuery.id)
   }
 
   await bot.answerCallbackQuery(callbackQuery.id)

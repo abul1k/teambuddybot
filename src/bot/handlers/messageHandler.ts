@@ -4,6 +4,8 @@ import {
   handleNewProjectSteps,
   isUserCreatingProject,
 } from '../commands/createNewProject.js'
+import { handleAddTaskFinalStep } from '../commands/addtask.js'
+import { addTaskStates } from '../../store/userStateStore.js'
 
 export const messageHandler = async (
   bot: TelegramBot,
@@ -25,6 +27,8 @@ export const messageHandler = async (
   if (userId && isUserCreatingProject(userId)) {
     return handleNewProjectSteps(bot, msg)
   }
+
+  if (await handleAddTaskFinalStep(bot, msg, addTaskStates)) return
 
   bot.sendMessage(
     msg.chat.id,
